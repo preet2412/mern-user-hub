@@ -1,16 +1,59 @@
+import { useState } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import { useClinic } from "@/contexts/ClinicContext";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { CalendarDays, Clock, Users, IndianRupee, Stethoscope } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const DoctorDashboard = () => {
   const { user } = useAuth();
+  const { appointments, updateAppointmentStatus, addPrescription } = useClinic();
+  const navigate = useNavigate();
 
-  const mockAppointments = [
-    { id: 1, patient: "John Doe", date: "2026-02-13", time: "10:00 AM", status: "Booked" },
-    { id: 2, patient: "Jane Smith", date: "2026-02-13", time: "11:30 AM", status: "Booked" },
-    { id: 3, patient: "Amit Kumar", date: "2026-02-14", time: "2:00 PM", status: "Booked" },
-  ];
+  const myAppointments = appointments.filter((a) => a.doctorId === user?.id);
+  const todayCount = myAppointments.filter((a) => a.date === "2026-02-13" && a.status === "Booked").length;
+
+  // Prescription form state
+  const [rxAppointmentId, setRxAppointmentId] = useState<string | null>(null);
+  const [rxForm, setRxForm] = useState({ medicineName: "", dosage: "", duration: "", instructions: "" });
+
+  const handleMarkCompleted = (aptId: string) => {
+    updateAppointmentStatus(aptId, "Completed");
+    setRxAppointmentId(aptId);
+  };
+
+  const handleStartConsultation = (aptId: string) => {
+    updateAppointmentStatus(aptId, "In Progress");
+    navigate(`/video/${aptId}`);
+  };
+
+  const handleSavePrescription = () => {
+    const apt = myAppointments.find((a) => a.id === rxAppointmentId);
+    if (!apt || !user) return;
+    addPrescription({
+      appointmentId: apt.id,
+      doctorId: user.id,
+      doctorName: `Dr. ${user.firstName} ${user.lastName}`,
+      patientId: apt.patientId,
+      patientName: apt.patientName,
+      date: new Date().toISOString().split("T")[0],
+      ...rxForm,
+    });
+    setRxAppointmentId(null);
+    setRxForm({ medicineName: "", dosage: "", duration: "", instructions: "" });
+  };
+
+  const statusColor = (s: string) => {
+    switch (s) {
+      case "Booked": return "text-primary";
+      case "In Progress": return "text-warning";
+      case "Completed": return "text-secondary";
+      default: return "text-muted-foreground";
+    }
+  };
 
   return (
     <div className="container mx-auto px-4 py-8 space-y-8">
@@ -28,14 +71,14 @@ const DoctorDashboard = () => {
             <CardTitle className="text-sm font-medium text-muted-foreground">Today's Appointments</CardTitle>
             <CalendarDays className="h-5 w-5 text-primary" />
           </CardHeader>
-          <CardContent><div className="text-3xl font-bold">2</div></CardContent>
+          <CardContent><div className="text-3xl font-bold">{todayCount}</div></CardContent>
         </Card>
         <Card className="border-0 shadow-md">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">Total Patients</CardTitle>
             <Users className="h-5 w-5 text-secondary" />
           </CardHeader>
-          <CardContent><div className="text-3xl font-bold">18</div></CardContent>
+          <CardContent><div className="text-3xl font-bold">{new Set(myAppointments.map((a) => a.patientId)).size}</div></CardContent>
         </Card>
         <Card className="border-0 shadow-md">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -53,33 +96,71 @@ const DoctorDashboard = () => {
         </Card>
       </div>
 
-      {/* Upcoming Appointments */}
+      {/* Appointments */}
       <Card className="border-0 shadow-md">
         <CardHeader>
-          <CardTitle>Upcoming Appointments</CardTitle>
+          <CardTitle>Appointments</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          {mockAppointments.map((apt) => (
-            <div key={apt.id} className="flex items-center justify-between rounded-lg bg-muted/50 p-4">
-              <div className="flex items-center gap-4">
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">
-                  {apt.patient.split(" ").map((n) => n[0]).join("")}
-                </div>
-                <div>
-                  <p className="font-medium">{apt.patient}</p>
-                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                    <CalendarDays className="h-3 w-3" />
-                    {apt.date}
-                    <Clock className="h-3 w-3 ml-1" />
-                    {apt.time}
+          {myAppointments.length === 0 && <p className="text-sm text-muted-foreground">No appointments.</p>}
+          {myAppointments.map((apt) => (
+            <div key={apt.id} className="rounded-lg bg-muted/50 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">
+                    {apt.patientName.split(" ").map((n) => n[0]).join("")}
+                  </div>
+                  <div>
+                    <p className="font-medium">{apt.patientName}</p>
+                    <p className="text-xs text-muted-foreground">Age: {apt.patientAge || "—"} • {apt.patientMedicalHistory || "No history"}</p>
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+                      <CalendarDays className="h-3 w-3" />{apt.date}
+                      <Clock className="h-3 w-3 ml-1" />{apt.time}
+                    </div>
                   </div>
                 </div>
+                <span className={`text-xs font-semibold ${statusColor(apt.status)}`}>{apt.status}</span>
               </div>
-              <Badge variant="secondary">{apt.status}</Badge>
+
+              {apt.status === "Booked" && (
+                <div className="flex gap-2">
+                  <Button size="sm" onClick={() => handleStartConsultation(apt.id)}>Start Consultation</Button>
+                  <Button size="sm" variant="outline" onClick={() => handleMarkCompleted(apt.id)}>Mark Completed</Button>
+                </div>
+              )}
+
+              {apt.status === "In Progress" && (
+                <div className="flex gap-2">
+                  <Button size="sm" variant="outline" onClick={() => navigate(`/video/${apt.id}`)}>Rejoin Video</Button>
+                  <Button size="sm" variant="outline" onClick={() => handleMarkCompleted(apt.id)}>Mark Completed</Button>
+                </div>
+              )}
             </div>
           ))}
         </CardContent>
       </Card>
+
+      {/* Prescription Form */}
+      {rxAppointmentId && (
+        <Card className="border-0 shadow-md">
+          <CardHeader>
+            <CardTitle>Write Prescription</CardTitle>
+            <p className="text-sm text-muted-foreground">
+              For: {myAppointments.find((a) => a.id === rxAppointmentId)?.patientName}
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <Input placeholder="Medicine Name" value={rxForm.medicineName} onChange={(e) => setRxForm((p) => ({ ...p, medicineName: e.target.value }))} />
+            <Input placeholder="Dosage (e.g. 10mg)" value={rxForm.dosage} onChange={(e) => setRxForm((p) => ({ ...p, dosage: e.target.value }))} />
+            <Input placeholder="Duration (e.g. 7 days)" value={rxForm.duration} onChange={(e) => setRxForm((p) => ({ ...p, duration: e.target.value }))} />
+            <Textarea placeholder="Instructions" value={rxForm.instructions} onChange={(e) => setRxForm((p) => ({ ...p, instructions: e.target.value }))} />
+            <div className="flex gap-2">
+              <Button size="sm" onClick={handleSavePrescription} disabled={!rxForm.medicineName}>Save Prescription</Button>
+              <Button size="sm" variant="ghost" onClick={() => setRxAppointmentId(null)}>Cancel</Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };
