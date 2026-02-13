@@ -9,6 +9,7 @@ export interface Appointment {
   doctorId: string;
   doctorName: string;
   specialization: string;
+  location?: string;
   date: string;
   time: string;
   status: "Booked" | "In Progress" | "Completed" | "Cancelled";
@@ -33,6 +34,7 @@ interface ClinicContextType {
   prescriptions: Prescription[];
   bookAppointment: (apt: Omit<Appointment, "id" | "status">) => void;
   updateAppointmentStatus: (id: string, status: Appointment["status"]) => void;
+  cancelAppointment: (id: string) => void;
   addPrescription: (rx: Omit<Prescription, "id">) => void;
   getPrescriptionByAppointment: (appointmentId: string) => Prescription | undefined;
 }
@@ -47,6 +49,7 @@ const mockAppointments: Appointment[] = [
     doctorId: "doc-1",
     doctorName: "Dr. Rajesh Sharma",
     specialization: "Cardiology",
+    location: "Mumbai",
     date: "2026-02-13",
     time: "10:00",
     status: "Booked",
@@ -60,9 +63,24 @@ const mockAppointments: Appointment[] = [
     doctorId: "doc-2",
     doctorName: "Dr. Priya Patel",
     specialization: "Dermatology",
+    location: "Delhi",
     date: "2026-02-15",
     time: "15:00",
     status: "Completed",
+  },
+  {
+    id: "apt-3",
+    patientId: "pat-1",
+    patientName: "John Doe",
+    patientAge: 32,
+    patientMedicalHistory: "No significant history",
+    doctorId: "doc-4",
+    doctorName: "Dr. Sita Reddy",
+    specialization: "General Medicine",
+    location: "Bangalore",
+    date: "2026-02-14",
+    time: "10:00",
+    status: "Cancelled",
   },
 ];
 
@@ -97,6 +115,10 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setAppointments((prev) => prev.map((a) => (a.id === id ? { ...a, status } : a)));
   }, []);
 
+  const cancelAppointment = useCallback((id: string) => {
+    setAppointments((prev) => prev.map((a) => (a.id === id ? { ...a, status: "Cancelled" as const } : a)));
+  }, []);
+
   const addPrescription = useCallback((rx: Omit<Prescription, "id">) => {
     setPrescriptions((prev) => [...prev, { ...rx, id: `rx-${Date.now()}` }]);
   }, []);
@@ -108,7 +130,7 @@ export const ClinicProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   return (
     <ClinicContext.Provider
-      value={{ appointments, prescriptions, bookAppointment, updateAppointmentStatus, addPrescription, getPrescriptionByAppointment }}
+      value={{ appointments, prescriptions, bookAppointment, updateAppointmentStatus, cancelAppointment, addPrescription, getPrescriptionByAppointment }}
     >
       {children}
     </ClinicContext.Provider>

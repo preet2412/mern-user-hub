@@ -14,6 +14,8 @@ export interface User {
   // Doctor-specific
   specialization?: string;
   consultationFee?: number;
+  location?: string;
+  availableSlots?: { date: string; time: string }[];
   // Patient-specific
   age?: number;
   medicalHistory?: string;
@@ -40,6 +42,7 @@ export interface RegisterData {
   role: UserRole;
   specialization?: string;
   consultationFee?: number;
+  location?: string;
   age?: number;
   medicalHistory?: string;
 }
@@ -48,7 +51,7 @@ const mockUsers: (User & { password: string })[] = [
   {
     id: "admin-1",
     username: "admin",
-    email: "admin@virtualclinic.com",
+    email: "admin@mediconnect.com",
     password: "admin123",
     phone: "9876543210",
     firstName: "System",
@@ -59,7 +62,7 @@ const mockUsers: (User & { password: string })[] = [
   {
     id: "doc-1",
     username: "dr.sharma",
-    email: "sharma@virtualclinic.com",
+    email: "sharma@mediconnect.com",
     password: "doctor123",
     phone: "9876543211",
     firstName: "Rajesh",
@@ -67,12 +70,19 @@ const mockUsers: (User & { password: string })[] = [
     role: "doctor",
     specialization: "Cardiology",
     consultationFee: 500,
+    location: "Mumbai",
+    availableSlots: [
+      { date: "2026-02-13", time: "10:00" },
+      { date: "2026-02-13", time: "11:00" },
+      { date: "2026-02-14", time: "09:00" },
+      { date: "2026-02-15", time: "14:00" },
+    ],
     createdAt: "2025-01-15T00:00:00Z",
   },
   {
     id: "doc-2",
     username: "dr.patel",
-    email: "patel@virtualclinic.com",
+    email: "patel@mediconnect.com",
     password: "doctor123",
     phone: "9876543212",
     firstName: "Priya",
@@ -80,7 +90,50 @@ const mockUsers: (User & { password: string })[] = [
     role: "doctor",
     specialization: "Dermatology",
     consultationFee: 400,
+    location: "Delhi",
+    availableSlots: [
+      { date: "2026-02-15", time: "15:00" },
+      { date: "2026-02-16", time: "10:00" },
+      { date: "2026-02-17", time: "11:00" },
+    ],
     createdAt: "2025-02-01T00:00:00Z",
+  },
+  {
+    id: "doc-3",
+    username: "dr.gupta",
+    email: "gupta@mediconnect.com",
+    password: "doctor123",
+    phone: "9876543215",
+    firstName: "Amit",
+    lastName: "Gupta",
+    role: "doctor",
+    specialization: "Orthopedics",
+    consultationFee: 600,
+    location: "Mumbai",
+    availableSlots: [
+      { date: "2026-02-13", time: "12:00" },
+      { date: "2026-02-14", time: "16:00" },
+    ],
+    createdAt: "2025-03-01T00:00:00Z",
+  },
+  {
+    id: "doc-4",
+    username: "dr.reddy",
+    email: "reddy@mediconnect.com",
+    password: "doctor123",
+    phone: "9876543216",
+    firstName: "Sita",
+    lastName: "Reddy",
+    role: "doctor",
+    specialization: "General Medicine",
+    consultationFee: 300,
+    location: "Bangalore",
+    availableSlots: [
+      { date: "2026-02-13", time: "09:00" },
+      { date: "2026-02-14", time: "10:00" },
+      { date: "2026-02-15", time: "11:00" },
+    ],
+    createdAt: "2025-03-10T00:00:00Z",
   },
   {
     id: "pat-1",

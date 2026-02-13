@@ -7,6 +7,7 @@ import { AuthProvider } from "@/contexts/AuthContext";
 import { ClinicProvider } from "@/contexts/ClinicContext";
 import Layout from "@/components/Layout";
 import ProtectedRoute from "@/components/ProtectedRoute";
+import Chatbot from "@/components/Chatbot";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -77,7 +78,7 @@ const App = () => (
                 <Route
                   path="/prescription/:appointmentId"
                   element={
-                    <ProtectedRoute allowedRoles={["doctor", "patient"]}>
+                    <ProtectedRoute allowedRoles={["doctor", "patient", "admin"]}>
                       <ViewPrescription />
                     </ProtectedRoute>
                   }
@@ -93,6 +94,7 @@ const App = () => (
                 <Route path="*" element={<NotFound />} />
               </Routes>
             </Layout>
+            <Chatbot />
           </ClinicProvider>
         </AuthProvider>
       </BrowserRouter>

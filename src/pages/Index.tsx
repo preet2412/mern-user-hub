@@ -21,8 +21,8 @@ const Index = () => {
     { icon: CalendarDays, title: "Appointments", desc: "Book and manage appointments with ease" },
     { icon: Video, title: "Video Consult", desc: "Real-time video consultations via WebRTC" },
     { icon: FileText, title: "Prescriptions", desc: "Digital prescriptions accessible anytime" },
-    { icon: Brain, title: "AI Advisory", desc: "AI-powered health risk analysis and summaries" },
-    { icon: Stethoscope, title: "Wellness", desc: "Mood tracking and family health tree analysis" },
+    { icon: Brain, title: "Smart Booking", desc: "Chatbot-assisted appointment scheduling" },
+    { icon: Stethoscope, title: "Doctor Search", desc: "Find doctors by specialization and location" },
   ];
 
   return (
@@ -41,8 +41,8 @@ const Index = () => {
             <span className="text-primary">One Click Away</span>
           </h1>
           <p className="mx-auto max-w-xl text-lg text-muted-foreground leading-relaxed">
-            Virtual Clinic connects patients with doctors through seamless online consultations,
-            AI-powered health insights, and digital prescription management.
+            MediConnect brings patients and doctors together through seamless online consultations,
+            smart appointment booking, and digital prescription management.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <Button size="lg" className="gap-2 px-6" asChild>
