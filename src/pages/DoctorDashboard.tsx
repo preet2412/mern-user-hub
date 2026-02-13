@@ -5,12 +5,12 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { CalendarDays, Clock, Users, IndianRupee, Stethoscope } from "lucide-react";
+import { CalendarDays, Clock, Users, IndianRupee, Stethoscope, FileText } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 const DoctorDashboard = () => {
   const { user } = useAuth();
-  const { appointments, updateAppointmentStatus, addPrescription } = useClinic();
+  const { appointments, updateAppointmentStatus, addPrescription, getPrescriptionByAppointment } = useClinic();
   const navigate = useNavigate();
 
   const myAppointments = appointments.filter((a) => a.doctorId === user?.id);
@@ -51,6 +51,7 @@ const DoctorDashboard = () => {
       case "Booked": return "text-primary";
       case "In Progress": return "text-warning";
       case "Completed": return "text-secondary";
+      case "Cancelled": return "text-destructive";
       default: return "text-muted-foreground";
     }
   };
@@ -103,40 +104,60 @@ const DoctorDashboard = () => {
         </CardHeader>
         <CardContent className="space-y-3">
           {myAppointments.length === 0 && <p className="text-sm text-muted-foreground">No appointments.</p>}
-          {myAppointments.map((apt) => (
-            <div key={apt.id} className="rounded-lg bg-muted/50 p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">
-                    {apt.patientName.split(" ").map((n) => n[0]).join("")}
-                  </div>
-                  <div>
-                    <p className="font-medium">{apt.patientName}</p>
-                    <p className="text-xs text-muted-foreground">Age: {apt.patientAge || "—"} • {apt.patientMedicalHistory || "No history"}</p>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
-                      <CalendarDays className="h-3 w-3" />{apt.date}
-                      <Clock className="h-3 w-3 ml-1" />{apt.time}
+          {myAppointments.map((apt) => {
+            const rx = getPrescriptionByAppointment(apt.id);
+            return (
+              <div key={apt.id} className="rounded-lg bg-muted/50 p-4 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold">
+                      {apt.patientName.split(" ").map((n) => n[0]).join("")}
+                    </div>
+                    <div>
+                      <p className="font-medium">{apt.patientName}</p>
+                      <p className="text-xs text-muted-foreground">Age: {apt.patientAge || "—"} • {apt.patientMedicalHistory || "No history"}</p>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
+                        <CalendarDays className="h-3 w-3" />{apt.date}
+                        <Clock className="h-3 w-3 ml-1" />{apt.time}
+                      </div>
                     </div>
                   </div>
+                  <div className="flex flex-col items-end gap-1">
+                    <span className={`text-xs font-semibold ${statusColor(apt.status)}`}>{apt.status}</span>
+                    <span className={`text-[11px] ${rx ? "text-secondary font-semibold" : "text-muted-foreground"}`}>
+                      Rx: {rx ? "Given" : "Not Given"}
+                    </span>
+                  </div>
                 </div>
-                <span className={`text-xs font-semibold ${statusColor(apt.status)}`}>{apt.status}</span>
+
+                {apt.status === "Booked" && (
+                  <div className="flex gap-2">
+                    <Button size="sm" onClick={() => handleStartConsultation(apt.id)}>Start Consultation</Button>
+                    <Button size="sm" variant="outline" onClick={() => handleMarkCompleted(apt.id)}>Mark Completed</Button>
+                  </div>
+                )}
+
+                {apt.status === "In Progress" && (
+                  <div className="flex gap-2">
+                    <Button size="sm" variant="outline" onClick={() => navigate(`/video/${apt.id}`)}>Rejoin Video</Button>
+                    <Button size="sm" variant="outline" onClick={() => handleMarkCompleted(apt.id)}>Mark Completed</Button>
+                  </div>
+                )}
+
+                {apt.status === "Completed" && !rx && (
+                  <Button size="sm" variant="outline" onClick={() => setRxAppointmentId(apt.id)}>
+                    <FileText className="mr-2 h-4 w-4" /> Add Prescription
+                  </Button>
+                )}
+
+                {apt.status === "Completed" && rx && (
+                  <Button size="sm" variant="outline" onClick={() => navigate(`/prescription/${apt.id}`)}>
+                    View Prescription
+                  </Button>
+                )}
               </div>
-
-              {apt.status === "Booked" && (
-                <div className="flex gap-2">
-                  <Button size="sm" onClick={() => handleStartConsultation(apt.id)}>Start Consultation</Button>
-                  <Button size="sm" variant="outline" onClick={() => handleMarkCompleted(apt.id)}>Mark Completed</Button>
-                </div>
-              )}
-
-              {apt.status === "In Progress" && (
-                <div className="flex gap-2">
-                  <Button size="sm" variant="outline" onClick={() => navigate(`/video/${apt.id}`)}>Rejoin Video</Button>
-                  <Button size="sm" variant="outline" onClick={() => handleMarkCompleted(apt.id)}>Mark Completed</Button>
-                </div>
-              )}
-            </div>
-          ))}
+            );
+          })}
         </CardContent>
       </Card>
 
