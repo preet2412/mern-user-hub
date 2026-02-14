@@ -11,14 +11,14 @@ export interface User {
   lastName: string;
   role: UserRole;
   createdAt: string;
-  // Doctor-specific
   specialization?: string;
   consultationFee?: number;
   location?: string;
-  availableSlots?: { date: string; time: string }[];
-  // Patient-specific
+  availableSlots?: string[]; // times like "09:00","10:00"
+  availableDays?: number[]; // 0=Sun,1=Mon,...6=Sat
   age?: number;
   medicalHistory?: string;
+  warnings?: string[];
 }
 
 interface AuthContextType {
@@ -30,6 +30,8 @@ interface AuthContextType {
   logout: () => void;
   deleteUser: (id: string) => void;
   updateUser: (id: string, data: Partial<User>) => void;
+  warnUser: (id: string, message: string) => void;
+  changePassword: (id: string, newPassword: string) => { success: boolean; message: string };
 }
 
 export interface RegisterData {
@@ -43,6 +45,8 @@ export interface RegisterData {
   specialization?: string;
   consultationFee?: number;
   location?: string;
+  availableSlots?: string[];
+  availableDays?: number[];
   age?: number;
   medicalHistory?: string;
 }
@@ -58,6 +62,7 @@ const mockUsers: (User & { password: string })[] = [
     lastName: "Admin",
     role: "admin",
     createdAt: "2025-01-01T00:00:00Z",
+    warnings: [],
   },
   {
     id: "doc-1",
@@ -71,13 +76,10 @@ const mockUsers: (User & { password: string })[] = [
     specialization: "Cardiology",
     consultationFee: 500,
     location: "Mumbai",
-    availableSlots: [
-      { date: "2026-02-13", time: "10:00" },
-      { date: "2026-02-13", time: "11:00" },
-      { date: "2026-02-14", time: "09:00" },
-      { date: "2026-02-15", time: "14:00" },
-    ],
+    availableSlots: ["09:00", "10:00", "11:00", "14:00", "16:00"],
+    availableDays: [1, 2, 3, 4, 5, 6], // Mon-Sat
     createdAt: "2025-01-15T00:00:00Z",
+    warnings: [],
   },
   {
     id: "doc-2",
@@ -91,12 +93,10 @@ const mockUsers: (User & { password: string })[] = [
     specialization: "Dermatology",
     consultationFee: 400,
     location: "Delhi",
-    availableSlots: [
-      { date: "2026-02-15", time: "15:00" },
-      { date: "2026-02-16", time: "10:00" },
-      { date: "2026-02-17", time: "11:00" },
-    ],
+    availableSlots: ["10:00", "11:00", "15:00", "16:00"],
+    availableDays: [1, 2, 3, 4, 5], // Mon-Fri
     createdAt: "2025-02-01T00:00:00Z",
+    warnings: [],
   },
   {
     id: "doc-3",
@@ -110,11 +110,10 @@ const mockUsers: (User & { password: string })[] = [
     specialization: "Orthopedics",
     consultationFee: 600,
     location: "Mumbai",
-    availableSlots: [
-      { date: "2026-02-13", time: "12:00" },
-      { date: "2026-02-14", time: "16:00" },
-    ],
+    availableSlots: ["09:00", "12:00", "14:00", "16:00"],
+    availableDays: [1, 2, 3, 4, 5, 6],
     createdAt: "2025-03-01T00:00:00Z",
+    warnings: [],
   },
   {
     id: "doc-4",
@@ -128,12 +127,10 @@ const mockUsers: (User & { password: string })[] = [
     specialization: "General Medicine",
     consultationFee: 300,
     location: "Bangalore",
-    availableSlots: [
-      { date: "2026-02-13", time: "09:00" },
-      { date: "2026-02-14", time: "10:00" },
-      { date: "2026-02-15", time: "11:00" },
-    ],
+    availableSlots: ["09:00", "10:00", "11:00", "14:00"],
+    availableDays: [1, 2, 3, 5, 6], // Mon,Tue,Wed,Fri,Sat
     createdAt: "2025-03-10T00:00:00Z",
+    warnings: [],
   },
   {
     id: "pat-1",
@@ -147,6 +144,7 @@ const mockUsers: (User & { password: string })[] = [
     age: 32,
     medicalHistory: "No significant history",
     createdAt: "2025-03-01T00:00:00Z",
+    warnings: [],
   },
   {
     id: "pat-2",
@@ -160,6 +158,7 @@ const mockUsers: (User & { password: string })[] = [
     age: 28,
     medicalHistory: "Mild asthma",
     createdAt: "2025-03-15T00:00:00Z",
+    warnings: [],
   },
 ];
 
@@ -193,6 +192,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const newUser: User & { password: string } = {
         id: `${data.role}-${Date.now()}`,
         ...data,
+        warnings: [],
         createdAt: new Date().toISOString(),
       };
       setUsers((prev) => [...prev, newUser]);
@@ -214,11 +214,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setUser((prev) => (prev && prev.id === id ? { ...prev, ...data } : prev));
   }, []);
 
+  const warnUser = useCallback((id: string, message: string) => {
+    setUsers((prev) =>
+      prev.map((u) => (u.id === id ? { ...u, warnings: [...(u.warnings || []), message] } : u))
+    );
+  }, []);
+
+  const changePassword = useCallback((id: string, newPassword: string) => {
+    setUsers((prev) =>
+      prev.map((u) => (u.id === id ? { ...u, password: newPassword } : u))
+    );
+    return { success: true, message: "Password changed successfully" };
+  }, []);
+
   const publicUsers: User[] = users.map(({ password: _, ...u }) => u);
 
   return (
     <AuthContext.Provider
-      value={{ user, users: publicUsers, isAuthenticated: !!user, login, register, logout, deleteUser, updateUser }}
+      value={{ user, users: publicUsers, isAuthenticated: !!user, login, register, logout, deleteUser, updateUser, warnUser, changePassword }}
     >
       {children}
     </AuthContext.Provider>

@@ -9,14 +9,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { Activity, LogOut, User, Menu, X } from "lucide-react";
-import { useState } from "react";
+import { Activity, LogOut, User, ArrowLeft, LayoutDashboard } from "lucide-react";
 
 const Layout = ({ children }: { children: React.ReactNode }) => {
   const { user, logout, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   const handleLogout = () => {
     logout();
@@ -24,50 +22,39 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
   };
 
   const initials = user ? `${user.firstName[0]}${user.lastName[0]}` : "";
-
   const roleColor = user?.role === "admin" ? "bg-destructive" : user?.role === "doctor" ? "bg-secondary" : "bg-primary";
 
-  const navLinks = isAuthenticated
-    ? [
-        { to: `/${user?.role}`, label: "Dashboard" },
-        ...(user?.role === "admin" ? [{ to: "/admin/users", label: "Manage Users" }] : []),
-      ]
-    : [];
+  const isDashboard = isAuthenticated && (
+    location.pathname === `/${user?.role}` || location.pathname === "/"
+  );
 
-  const isActive = (path: string) => location.pathname === path;
+  const showBackArrow = isAuthenticated && !isDashboard;
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      {/* Header */}
       <header className="sticky top-0 z-50 border-b bg-card/80 backdrop-blur-md">
-        <div className="container mx-auto flex h-16 items-center justify-between px-4">
-          <Link to="/" className="flex items-center gap-2.5 group">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-transform group-hover:scale-105">
-              <Activity className="h-5 w-5" />
+        <div className="container mx-auto flex h-14 items-center justify-between px-4">
+          {/* Left: Back arrow or spacer */}
+          <div className="flex items-center gap-2 min-w-[80px]">
+            {showBackArrow && (
+              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => navigate(-1)}>
+                <ArrowLeft className="h-4 w-4" />
+              </Button>
+            )}
+          </div>
+
+          {/* Center: Logo */}
+          <Link to="/" className="flex items-center gap-2 group">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary text-primary-foreground transition-transform group-hover:scale-105">
+              <Activity className="h-4 w-4" />
             </div>
-            <span className="text-xl font-bold tracking-tight" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
+            <span className="text-lg font-bold tracking-tight" style={{ fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
               Medi<span className="text-primary">Connect</span>
             </span>
           </Link>
 
-          {/* Desktop Nav */}
-          <nav className="hidden md:flex items-center gap-1">
-            {navLinks.map((link) => (
-              <Link
-                key={link.to}
-                to={link.to}
-                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
-                  isActive(link.to)
-                    ? "bg-accent text-accent-foreground"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                }`}
-              >
-                {link.label}
-              </Link>
-            ))}
-          </nav>
-
-          <div className="flex items-center gap-3">
+          {/* Right: Profile or Auth buttons */}
+          <div className="flex items-center min-w-[80px] justify-end">
             {isAuthenticated && user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -88,9 +75,13 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                     </span>
                   </div>
                   <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => navigate(`/${user.role}`)}>
+                    <LayoutDashboard className="mr-2 h-4 w-4" />
+                    Dashboard
+                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => navigate("/profile")}>
                     <User className="mr-2 h-4 w-4" />
-                    Profile
+                    My Profile
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
@@ -109,39 +100,10 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
                 </Button>
               </div>
             )}
-
-            {/* Mobile menu toggle */}
-            <Button
-              variant="ghost"
-              size="icon"
-              className="md:hidden"
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            >
-              {mobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-            </Button>
           </div>
         </div>
-
-        {/* Mobile Nav */}
-        {mobileMenuOpen && (
-          <div className="md:hidden border-t bg-card px-4 py-3 space-y-1">
-            {navLinks.map((link) => (
-              <Link
-                key={link.to}
-                to={link.to}
-                onClick={() => setMobileMenuOpen(false)}
-                className={`block px-3 py-2 rounded-md text-sm font-medium ${
-                  isActive(link.to) ? "bg-accent text-accent-foreground" : "text-muted-foreground"
-                }`}
-              >
-                {link.label}
-              </Link>
-            ))}
-          </div>
-        )}
       </header>
 
-      {/* Main Content */}
       <main className="flex-1">{children}</main>
     </div>
   );
