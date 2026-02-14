@@ -9,7 +9,6 @@ import { MessageCircle, X, Send } from "lucide-react";
 interface Message {
   from: "bot" | "user";
   text: string;
-  options?: string[];
 }
 
 const symptomToSpecialization: Record<string, string> = {
@@ -30,9 +29,11 @@ const symptomToSpecialization: Record<string, string> = {
 
 type Step = "greeting" | "symptoms" | "confirm_spec" | "date" | "time" | "select_doctor" | "confirm" | "done";
 
+const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
 const Chatbot = () => {
   const { user, users } = useAuth();
-  const { bookAppointment } = useClinic();
+  const { bookAppointment, isSlotBooked } = useClinic();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -56,8 +57,8 @@ const Chatbot = () => {
     }
   }, [open, messages.length, user?.firstName]);
 
-  const addMessage = (from: "bot" | "user", text: string, options?: string[]) => {
-    setMessages((prev) => [...prev, { from, text, options }]);
+  const addMessage = (from: "bot" | "user", text: string) => {
+    setMessages((prev) => [...prev, { from, text }]);
   };
 
   const matchSpecialization = (text: string): string | null => {
@@ -79,29 +80,36 @@ const Chatbot = () => {
         const spec = matchSpecialization(userText);
         if (spec) {
           setSelectedSpec(spec);
-          addMessage("bot", `Based on your symptoms, I'd suggest a ${spec} specialist. Shall I proceed with this? (yes/no)`);
+          addMessage("bot", `Based on your symptoms, I'd suggest a ${spec} specialist. Shall I proceed? (yes/no)`);
           setStep("confirm_spec");
         } else {
-          addMessage("bot", "I couldn't determine the specialization. Could you describe your symptoms more specifically? (e.g., chest pain, skin rash, joint pain, fever)");
+          addMessage("bot", "Could you describe your symptoms more specifically? (e.g., chest pain, skin rash, joint pain, fever)");
         }
         break;
       }
       case "confirm_spec": {
         if (userText.toLowerCase().includes("yes")) {
-          addMessage("bot", "Great! What date would you prefer? (YYYY-MM-DD format)");
+          addMessage("bot", "What date would you prefer? (YYYY-MM-DD format)");
           setStep("date");
         } else {
           const specs = [...new Set(doctors.map((d) => d.specialization).filter(Boolean))];
-          addMessage("bot", `Please choose a specialization: ${specs.join(", ")}`);
+          addMessage("bot", `Please choose: ${specs.join(", ")}`);
           setStep("symptoms");
         }
         break;
       }
       case "date": {
         if (/^\d{4}-\d{2}-\d{2}$/.test(userText)) {
-          setSelectedDate(userText);
-          addMessage("bot", "What time do you prefer? (HH:MM format, e.g., 10:00)");
-          setStep("time");
+          const dayOfWeek = new Date(userText).getDay();
+          const available = doctors.filter((d) => d.specialization === selectedSpec && d.availableDays?.includes(dayOfWeek));
+          if (available.length === 0) {
+            addMessage("bot", `No ${selectedSpec} doctors available on ${DAYS[dayOfWeek]}. Try another date.`);
+          } else {
+            setSelectedDate(userText);
+            const slots = [...new Set(available.flatMap((d) => d.availableSlots || []))].sort();
+            addMessage("bot", `Available time slots: ${slots.join(", ")}. Enter your preferred time (HH:MM).`);
+            setStep("time");
+          }
         } else {
           addMessage("bot", "Please enter a valid date in YYYY-MM-DD format.");
         }
@@ -110,30 +118,40 @@ const Chatbot = () => {
       case "time": {
         if (/^\d{2}:\d{2}$/.test(userText)) {
           setSelectedTime(userText);
-          const available = doctors.filter((d) => d.specialization === selectedSpec);
+          const available = doctors.filter((d) =>
+            d.specialization === selectedSpec &&
+            d.availableDays?.includes(new Date(selectedDate).getDay()) &&
+            d.availableSlots?.includes(userText) &&
+            !isSlotBooked(d.id, selectedDate, userText)
+          );
           if (available.length === 0) {
-            addMessage("bot", `No ${selectedSpec} doctors available. Please try different symptoms.`);
-            setStep("symptoms");
+            addMessage("bot", "No doctors available at that time. Try a different slot.");
+            setStep("date");
           } else {
             const doctorList = available.map((d, i) => `${i + 1}. Dr. ${d.firstName} ${d.lastName} (${d.location || "N/A"}) - ₹${d.consultationFee}`).join("\n");
-            addMessage("bot", `Available ${selectedSpec} doctors:\n${doctorList}\n\nPlease enter the number to select.`);
+            addMessage("bot", `Available doctors:\n${doctorList}\n\nEnter number to select.`);
             setStep("select_doctor");
           }
         } else {
-          addMessage("bot", "Please enter a valid time in HH:MM format.");
+          addMessage("bot", "Please enter time in HH:MM format.");
         }
         break;
       }
       case "select_doctor": {
-        const available = doctors.filter((d) => d.specialization === selectedSpec);
+        const available = doctors.filter((d) =>
+          d.specialization === selectedSpec &&
+          d.availableDays?.includes(new Date(selectedDate).getDay()) &&
+          d.availableSlots?.includes(selectedTime) &&
+          !isSlotBooked(d.id, selectedDate, selectedTime)
+        );
         const idx = parseInt(userText) - 1;
         if (idx >= 0 && idx < available.length) {
           setSelectedDoctorId(available[idx].id);
           const doc = available[idx];
-          addMessage("bot", `Confirm booking:\nDoctor: Dr. ${doc.firstName} ${doc.lastName}\nDate: ${selectedDate}\nTime: ${selectedTime}\n\nType "confirm" to book.`);
+          addMessage("bot", `Confirm booking:\nDoctor: Dr. ${doc.firstName} ${doc.lastName}\nDate: ${selectedDate}\nTime: ${selectedTime}\nFee: ₹${doc.consultationFee}\n\nType "confirm" to book.`);
           setStep("confirm");
         } else {
-          addMessage("bot", "Invalid selection. Please enter a valid number.");
+          addMessage("bot", "Invalid selection. Enter a valid number.");
         }
         break;
       }
@@ -152,14 +170,15 @@ const Chatbot = () => {
               location: doc.location,
               date: selectedDate,
               time: selectedTime,
+              consultationFee: doc.consultationFee,
             });
-            addMessage("bot", "✅ Appointment booked successfully! You can view it in your dashboard.");
+            addMessage("bot", "✅ Appointment booked successfully! Check your dashboard.");
             setStep("done");
           }
         } else {
           addMessage("bot", "Booking cancelled. Type anything to start over.");
-          setStep("greeting");
           setMessages([]);
+          setStep("greeting");
         }
         break;
       }
@@ -168,8 +187,6 @@ const Chatbot = () => {
         setStep("greeting");
         break;
       }
-      default:
-        break;
     }
   };
 
@@ -177,7 +194,6 @@ const Chatbot = () => {
 
   return (
     <>
-      {/* Toggle Button */}
       {!open && (
         <button
           onClick={() => setOpen(true)}
@@ -187,11 +203,9 @@ const Chatbot = () => {
         </button>
       )}
 
-      {/* Chat Window */}
       {open && (
         <div className="fixed bottom-6 right-6 z-50 w-80 sm:w-96">
           <Card className="border-0 shadow-xl flex flex-col" style={{ height: "28rem" }}>
-            {/* Header */}
             <div className="flex items-center justify-between bg-primary text-primary-foreground px-4 py-3 rounded-t-lg">
               <div className="flex items-center gap-2">
                 <MessageCircle className="h-5 w-5" />
@@ -202,17 +216,12 @@ const Chatbot = () => {
               </Button>
             </div>
 
-            {/* Messages */}
             <div className="flex-1 overflow-y-auto p-3 space-y-2">
               {messages.map((msg, i) => (
                 <div key={i} className={`flex ${msg.from === "user" ? "justify-end" : "justify-start"}`}>
-                  <div
-                    className={`max-w-[80%] rounded-lg px-3 py-2 text-sm whitespace-pre-line ${
-                      msg.from === "user"
-                        ? "bg-primary text-primary-foreground"
-                        : "bg-muted text-foreground"
-                    }`}
-                  >
+                  <div className={`max-w-[80%] rounded-lg px-3 py-2 text-sm whitespace-pre-line ${
+                    msg.from === "user" ? "bg-primary text-primary-foreground" : "bg-muted text-foreground"
+                  }`}>
                     {msg.text}
                   </div>
                 </div>
@@ -220,7 +229,6 @@ const Chatbot = () => {
               <div ref={bottomRef} />
             </div>
 
-            {/* Input */}
             <div className="border-t p-3 flex gap-2">
               <Input
                 placeholder={step === "done" ? "Type to start over..." : "Type your message..."}
